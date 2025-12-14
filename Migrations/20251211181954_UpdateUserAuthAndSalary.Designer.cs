@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using YousefZuaianatAPI.Data;
 
@@ -11,9 +12,11 @@ using YousefZuaianatAPI.Data;
 namespace YousefZuaianatAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251211181954_UpdateUserAuthAndSalary")]
+    partial class UpdateUserAuthAndSalary
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -49,8 +52,6 @@ namespace YousefZuaianatAPI.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Attendances");
                 });
@@ -113,8 +114,6 @@ namespace YousefZuaianatAPI.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("LeaveBalances");
                 });
@@ -243,20 +242,7 @@ namespace YousefZuaianatAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
-
                     b.ToTable("UserTasks");
-                });
-
-            modelBuilder.Entity("YousefZuaianatAPI.Models.Attendance", b =>
-                {
-                    b.HasOne("YousefZuaianatAPI.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("YousefZuaianatAPI.Models.Department", b =>
@@ -267,17 +253,6 @@ namespace YousefZuaianatAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Manager");
-                });
-
-            modelBuilder.Entity("YousefZuaianatAPI.Models.LeaveBalance", b =>
-                {
-                    b.HasOne("YousefZuaianatAPI.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("YousefZuaianatAPI.Models.Request", b =>
@@ -306,17 +281,6 @@ namespace YousefZuaianatAPI.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("Manager");
-                });
-
-            modelBuilder.Entity("YousefZuaianatAPI.Models.UserTask", b =>
-                {
-                    b.HasOne("YousefZuaianatAPI.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("YousefZuaianatAPI.Models.Department", b =>

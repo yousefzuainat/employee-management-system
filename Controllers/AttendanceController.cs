@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using YousefZuaianatAPI.Data;
 using YousefZuaianatAPI.Models;
 using System.Security.Claims;
+using YousefZuaianatAPI.Models.Enum;
 
 namespace YousefZuaianatAPI.Controllers
 {
@@ -23,7 +24,7 @@ namespace YousefZuaianatAPI.Controllers
             // 1. Validate Format and Extract Time
             // Expected Format: "YousefZuaianat_Attendance_yyyyMMdd_HHmm"
             var parts = qrContent.Split('_');
-            if (parts.Length != 4) return BadRequest("Invalid QR Code format.");
+            if (parts.Length != 4) return BadRequest("Invalid QR Code format. Expected: 'YousefZuaianat_Attendance_yyyyMMdd_HHmm'");
 
             string dateStr = parts[2];
             string timeStr = parts[3];
@@ -31,13 +32,13 @@ namespace YousefZuaianatAPI.Controllers
 
             if (dateStr != todayStr)
             {
-                return BadRequest("This QR Code is expired (wrong date).");
+                return BadRequest($"This QR Code is expired (wrong date). QR Date: {dateStr}, Today: {todayStr}");
             }
 
             // Parse Generation Time
             if (!DateTime.TryParseExact($"{dateStr}_{timeStr}", "yyyyMMdd_HHmm", null, System.Globalization.DateTimeStyles.None, out DateTime generationTime))
             {
-                return BadRequest("Invalid Scan time format.");
+                return BadRequest($"Invalid Scan time format. Got: {timeStr}");
             }
 
             // 2. Identify User

@@ -5,11 +5,14 @@ using YousefZuaianatAPI.DTOs;
 using YousefZuaianatAPI.Models;
 using YousefZuaianatAPI.Models.Enum;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity; // <--- مطلوب للـ PasswordHasher
 
 namespace YousefZuaianatAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "admin")]
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -40,11 +43,13 @@ namespace YousefZuaianatAPI.Controllers
             {
                 Name = dto.Name,
                 Email = dto.Email,
-                PasswordHash = dto.Password, // TODO: Hash password
                 Role = dto.Role,
                 Salary = dto.Salary,
                 CreatedAt = DateTime.UtcNow
             };
+
+            // Hash the password
+            newUser.PasswordHash = new PasswordHasher<User>().HashPassword(newUser, dto.Password);
 
             // Logic for Department Manager
             if (dto.Role == Role.DepartmentManager)
@@ -60,47 +65,58 @@ namespace YousefZuaianatAPI.Controllers
                 };
 
                 _context.Departments.Add(newDepartment);
-                await _context.SaveChangesAsync(); // Save to get ID
+                await _context.SaveChangesAsync(); // Save to get Dept ID
 
                 newUser.DepartmentId = newDepartment.Id;
 
-                // Also update the department to link back to this manager (Circular but needed)
-                newDepartment.ManagerId = newUser.Id; // Will need to save User first to get ID loop?
-                // Save User first
+                // Save User first (to get User ID)
                 _context.Users.Add(newUser);
                 await _context.SaveChangesAsync();
 
-                // Now update department manager
+                // 2. Set Department ManagerId to this new User
                 newDepartment.ManagerId = newUser.Id;
                 _context.Departments.Update(newDepartment);
+
+                // 3. Set User's ManagerId to themselves (Self-Managed)
+                newUser.ManagerId = newUser.Id;
+                _context.Users.Update(newUser); // Update user again
+
                 await _context.SaveChangesAsync();
             }
-            // Logic for Employee
-            else if (dto.Role == Role.Employee)
+            // Logic for Employee or HR
+            else if (dto.Role == Role.Employee || dto.Role == Role.HR)
             {
-                if (!dto.DirectManagerId.HasValue)
+                if (!dto.DirectManagerId.HasValue || dto.DirectManagerId.Value == 0)
                 {
-                    return BadRequest("Direct Manager ID is required for Employees.");
+                    return BadRequest("Direct Manager ID is required for Employees and HR.");
                 }
 
+                if (dto.Salary <= 0)
+                {
+                    return BadRequest("Salary is required and must be greater than 0 for Employees and HR.");
+                }
+
+                // Find the manager
                 var manager = await _context.Users.FindAsync(dto.DirectManagerId.Value);
-                if (manager == null || manager.Role != Role.DepartmentManager)
+                if (manager == null)
                 {
-                    return BadRequest("Invalid Direct Manager.");
+                    return BadRequest("The specified manager does not exist.");
                 }
 
-                if (!manager.DepartmentId.HasValue)
+                // Check if manager has a department
+                if (manager.DepartmentId == null)
                 {
-                    return BadRequest("The selected manager does not belong to a department.");
+                    return BadRequest("The specified manager is not assigned to any department, so the employee cannot be assigned.");
                 }
 
+                // Assign User's Manager and Department match the Manager's
                 newUser.ManagerId = manager.Id;
                 newUser.DepartmentId = manager.DepartmentId;
 
                 _context.Users.Add(newUser);
                 await _context.SaveChangesAsync();
             }
-            // Logic for HR (Assume they just exist, maybe no dept?)
+            // Logic for other roles (like SuperAdmin) or fallback
             else
             {
                 _context.Users.Add(newUser);
@@ -232,9 +248,14 @@ namespace YousefZuaianatAPI.Controllers
 
             if (!string.IsNullOrWhiteSpace(dto.Name)) user.Name = dto.Name;
             if (!string.IsNullOrWhiteSpace(dto.Email)) user.Email = dto.Email;
-            if (!string.IsNullOrWhiteSpace(dto.Password)) user.PasswordHash = dto.Password;
-            if (dto.DepartmentId.HasValue) user.DepartmentId = dto.DepartmentId;
-            if (dto.ManagerId.HasValue) user.ManagerId = dto.ManagerId;
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+                user.PasswordHash = new PasswordHasher<User>().HashPassword(user, dto.Password);
+
+            if (dto.DepartmentId.HasValue && dto.DepartmentId.Value != 0)
+                user.DepartmentId = dto.DepartmentId;
+
+            if (dto.ManagerId.HasValue && dto.ManagerId.Value != 0)
+                user.ManagerId = dto.ManagerId;
 
             _context.Users.Update(user);
             await _context.SaveChangesAsync();

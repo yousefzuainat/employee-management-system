@@ -5,12 +5,16 @@ using YousefZuaianatAPI.DTOs;
 using YousefZuaianatAPI.Models;
 using YousefZuaianatAPI.Models.Enum;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace YousefZuaianatAPI.Controllers
 {
 
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "HR")]
+    
     public class HRController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -53,11 +57,11 @@ namespace YousefZuaianatAPI.Controllers
             }
 
             // 3. Create the Employee User object
+            // 3. Create the Employee User object
             var employee = new User
             {
                 Name = dto.Name,
                 Email = dto.Email,
-                PasswordHash = dto.Password, // Note: Password should be hashed in a real application
                 Role = Role.Employee,
                 ManagerId = manager.Id, // Assign direct manager
                 DepartmentId = department.Id, // Assign to manager's department
@@ -65,30 +69,16 @@ namespace YousefZuaianatAPI.Controllers
                 UpdatedAt = DateTime.UtcNow
             };
 
+            // Hash the password
+            employee.PasswordHash = new PasswordHasher<User>().HashPassword(employee, dto.Password);
+
             _context.Users.Add(employee);
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Employee created successfully", EmployeeId = employee.Id });
         }
 
-        /// <summary>
-        /// Deletes an Employee by their ID.
-        /// </summary>
-        /// <param name="id">The ID of the employee to delete.</param>
-        /// <returns>Success message or Not Found.</returns>
-        [HttpDelete("DeleteEmployee/{id}")]
-        public async Task<IActionResult> DeleteEmployee(int id)
-        {
-            var employee = await _context.Users.FindAsync(id);
-            if (employee == null)
-            {
-                return NotFound("Employee not found!!");
-            }
 
-            _context.Users.Remove(employee);
-            await _context.SaveChangesAsync();
-            return Ok("Employee deleted successfully");
-        }
 
         /// <summary>
         /// Retrieves a list of all users in the system.
@@ -121,13 +111,19 @@ namespace YousefZuaianatAPI.Controllers
             }
 
             // Update basic fields
-            employee.Name = dto.Name;
-            employee.Email = dto.Email;
+            if (!string.IsNullOrWhiteSpace(dto.Name)) employee.Name = dto.Name;
+            if (!string.IsNullOrWhiteSpace(dto.Email)) employee.Email = dto.Email;
 
             // Only update password if a new one is provided
             if (!string.IsNullOrEmpty(dto.Password))
             {
-                employee.PasswordHash = dto.Password;
+                employee.PasswordHash = new PasswordHasher<User>().HashPassword(employee, dto.Password);
+            }
+
+            // Update Salary if provided
+            if (dto.Salary.HasValue)
+            {
+                employee.Salary = dto.Salary.Value;
             }
 
             employee.UpdatedAt = DateTime.UtcNow;
@@ -159,11 +155,13 @@ namespace YousefZuaianatAPI.Controllers
                 {
                     Name = dto.Name,
                     Email = dto.Email,
-                    PasswordHash = dto.Password, // Note: Hash in production
                     Role = Role.DepartmentManager,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
+
+                // Hash
+                manager.PasswordHash = new PasswordHasher<User>().HashPassword(manager, dto.Password);
 
                 _context.Users.Add(manager);
                 await _context.SaveChangesAsync();
@@ -181,8 +179,9 @@ namespace YousefZuaianatAPI.Controllers
                 _context.Departments.Add(department);
                 await _context.SaveChangesAsync();
 
-                // 3. Assign the Manager to the Department (as a member too)
+                // 3. Assign the Manager to the Department (as a member too) and set self as Manager
                 manager.DepartmentId = department.Id;
+                manager.ManagerId = manager.Id; // <--- Set User's ManagerId to themselves
                 _context.Users.Update(manager);
                 await _context.SaveChangesAsync();
 
@@ -198,25 +197,44 @@ namespace YousefZuaianatAPI.Controllers
         }
 
         /// <summary>
-        /// Deletes a Manager by ID.
+        /// Deletes a User (Employee osr Manager) by ID.
         /// </summary>
-        /// <param name="id">Manager ID.</param>
+        /// <param name="id">User ID.</param>
         /// <returns>Success message.</returns>
-        [HttpDelete("DeleteManager/{id}")]
-        public async Task<IActionResult> DeleteManager(int id)
+        [HttpDelete("DeleteUser/{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
         {
-            var manager = await _context.Users.FindAsync(id);
-            if (manager == null)
+            var user = await _context.Users.Include(u => u.Department).FirstOrDefaultAsync(u => u.Id == id);
+            if (user == null)
             {
-                return NotFound("Manager not found!!");
+                return NotFound("User not found!!");
             }
 
-            // Note: Deleting a manager might affect their department. 
-            // Additional logic might be needed to handle the orphaned department.
+            // If the user manages a department, delete that department as well
+            var managedDepartment = await _context.Departments.FirstOrDefaultAsync(d => d.ManagerId == user.Id);
+            if (managedDepartment != null)
+            {
+                // 1. Unlink other employees from this department to prevent FK errors or accidental deletion
+                var employeesInDept = await _context.Users
+                    .Where(u => u.DepartmentId == managedDepartment.Id && u.Id != user.Id)
+                    .ToListAsync();
 
-            _context.Users.Remove(manager);
+                foreach (var emp in employeesInDept)
+                {
+                    emp.DepartmentId = null;
+                }
+
+                // 2. Break the manager's own link to the department (to allow safe deletion order)
+                user.DepartmentId = null;
+
+                // 3. Delete the department
+                _context.Departments.Remove(managedDepartment);
+            }
+
+            // 4. Delete the user
+            _context.Users.Remove(user);
             await _context.SaveChangesAsync();
-            return Ok("Manager deleted successfully");
+            return Ok("User (and their Department if applicable) deleted successfully");
         }
 
         /// <summary>
@@ -234,8 +252,8 @@ namespace YousefZuaianatAPI.Controllers
                 return NotFound("Manager not found!!");
             }
 
-            manager.Name = dto.Name;
-            manager.Email = dto.Email;
+            if (!string.IsNullOrWhiteSpace(dto.Name)) manager.Name = dto.Name;
+            if (!string.IsNullOrWhiteSpace(dto.Email)) manager.Email = dto.Email;
 
             // Optional: Change the department this manager is assigned to
             if (dto.DepartmentId.HasValue)
@@ -251,7 +269,7 @@ namespace YousefZuaianatAPI.Controllers
             // Optional: Update password if provided
             if (!string.IsNullOrEmpty(dto.Password))
             {
-                manager.PasswordHash = dto.Password;
+                manager.PasswordHash = new PasswordHasher<User>().HashPassword(manager, dto.Password);
             }
 
             // Optional: Rename the department the manager belongs to

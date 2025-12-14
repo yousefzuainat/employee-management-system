@@ -1,4 +1,4 @@
-﻿namespace YousefZuaianatAPI.Models
+﻿namespace YousefZuaianatAPI.Models.Enum
 {
     public enum AttendanceStatus
     {

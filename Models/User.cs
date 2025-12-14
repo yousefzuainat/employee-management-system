@@ -1,10 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using YousefZuaianatAPI.Models.Enum;
 
 namespace YousefZuaianatAPI.Models
 {
-    public class User
+    public class User 
     {
         public int Id { get; set; }
 
@@ -29,7 +30,7 @@ namespace YousefZuaianatAPI.Models
         public Role Role { get; set; }
 
         public decimal Salary { get; set; } = 0; // الراتب
-
+ 
         public decimal Deductions { get; set; } = 0; // الخصومات (السلف)
 
         // Navigation property for requests made by the user
@@ -37,5 +38,9 @@ namespace YousefZuaianatAPI.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        public string? RefreshToken { get; set; }
+
+        public DateTime? RefreshTokenExpiryTime { get; set; }
     }
 }

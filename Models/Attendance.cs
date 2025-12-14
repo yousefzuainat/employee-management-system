@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using YousefZuaianatAPI.Models;
+using YousefZuaianatAPI.Models.Enum;
 
 namespace YousefZuaianatAPI.Models
 {
@@ -9,6 +10,7 @@ namespace YousefZuaianatAPI.Models
         public int Id { get; set; }
         [Required]
         public int UserId { get; set; }
+        public User? User { get; set; }
         [Required]
 
         public DateTime Date { get; set; }
@@ -18,6 +20,6 @@ namespace YousefZuaianatAPI.Models
         [Required]
         public AttendanceStatus Status { get; set; } = AttendanceStatus.Present;
 
-        
+
     }
 }

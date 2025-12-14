@@ -10,6 +10,7 @@ namespace YousefZuaianatAPI.Models
         [Required]
 
         public int UserId { get; set; }
+        public User? User { get; set; }
 
         [Required]
         public string LeaveType { get; set; } = string.Empty; // "إجازة سنوية", "إجازة مرضية", etc.
@@ -24,6 +25,6 @@ namespace YousefZuaianatAPI.Models
         [Required]
         public int Total { get; set; }     // 💡 كلي
 
-       
+
     }
 }

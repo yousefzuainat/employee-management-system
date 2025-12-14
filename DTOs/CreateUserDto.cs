@@ -15,7 +15,7 @@ namespace YousefZuaianatAPI.DTOs
         public string Password { get; set; }
 
         [Required]
-        public Role Role { get; set; }
+        public Role Role { get; set; } = Role.Employee;
 
         public decimal Salary { get; set; } // New Field
 

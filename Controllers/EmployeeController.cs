@@ -5,11 +5,13 @@ using YousefZuaianatAPI.DTOs;
 using YousefZuaianatAPI.Models;
 using YousefZuaianatAPI.Models.Enum;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace YousefZuaianatAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Employee")]
     public class EmployeeController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
