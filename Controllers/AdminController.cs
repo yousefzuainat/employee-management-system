@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity; // <--- مطلوب للـ PasswordHasher
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using YousefZuaianatAPI.Data;
 using YousefZuaianatAPI.DTOs;
 using YousefZuaianatAPI.Models;
 using YousefZuaianatAPI.Models.Enum;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity; // <--- مطلوب للـ PasswordHasher
+using YousefZuaianatAPI.Services;
 
 namespace YousefZuaianatAPI.Controllers
 {
@@ -16,10 +17,14 @@ namespace YousefZuaianatAPI.Controllers
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public AdminController(ApplicationDbContext context)
+
+        public AdminController(ApplicationDbContext context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
+
         }
 
         // ==========================================
@@ -123,6 +128,39 @@ namespace YousefZuaianatAPI.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            // =======================
+            // إرسال Email للمستخدم الجديد
+            // =======================
+            string emailBody = $@"
+  <h2>Welcome {newUser.Name}</h2>
+  <p>Your account has been created successfully.</p>
+
+<p><b>Email:</b> {newUser.Email}</p>
+<p><b>Password:</b> {dto.Password}</p>
+
+<p>Please login and change your password immediately.</p>
+";
+
+            try
+            {
+                await _emailService.SendEmailAsync(
+                    newUser.Email,
+                    "Your Account Credentials",
+                    emailBody
+                );
+            }
+            catch (Exception ex)
+            {
+                // لو فشل الإرسال، نكمل إنشاء المستخدم لكن نخبر الـ Admin
+                return Ok(new
+                {
+                    Message = "User created successfully, but email failed to send.",
+                    UserId = newUser.Id,
+                    EmailError = ex.Message
+                });
+            }
+
+
             return Ok(new { Message = "User created successfully", UserId = newUser.Id });
         }
 
@@ -139,7 +177,7 @@ namespace YousefZuaianatAPI.Controllers
                 {
                     Id = r.Id,
                     UserId = r.UserId,
-                    UserName = r.User.Name,
+                    UserName = r.User != null ? r.User.Name : "Unknown",
                     Description = r.Description,
                     Amount = r.Amount,
                     RequestType = r.RequestType,

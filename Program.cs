@@ -8,6 +8,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<YousefZuaianatAPI.Data.ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<IEmailService, EmailService>();
+
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

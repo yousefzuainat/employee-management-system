@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using YousefZuaianatAPI.Services;
 using Microsoft.EntityFrameworkCore;
 using YousefZuaianatAPI.Data;
 using YousefZuaianatAPI.DTOs;
@@ -14,14 +15,16 @@ namespace YousefZuaianatAPI.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "HR")]
-    
+
     public class HRController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public HRController(ApplicationDbContext context)
+        public HRController(ApplicationDbContext context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
         }
 
         // ==========================================
@@ -74,6 +77,31 @@ namespace YousefZuaianatAPI.Controllers
 
             _context.Users.Add(employee);
             await _context.SaveChangesAsync();
+
+            // =======================
+            // Send Email to New Employee
+            // =======================
+            string emailBody = $@"
+  <h2>Welcome {employee.Name}</h2>
+  <p>Your account has been created successfully.</p>
+  <p><b>Role:</b> Employee</p>
+  <p><b>Email:</b> {employee.Email}</p>
+  <p><b>Password:</b> {dto.Password}</p>
+  <p>Please login and change your password immediately.</p>";
+
+            try
+            {
+                await _emailService.SendEmailAsync(
+                    employee.Email,
+                    "Your Account Credentials",
+                    emailBody
+                );
+            }
+            catch (Exception)
+            {
+                // Log error but assume success for user creation
+                // return Ok(new { Message = "Employee created, but email failed", Error = ex.Message });
+            }
 
             return Ok(new { Message = "Employee created successfully", EmployeeId = employee.Id });
         }
@@ -186,6 +214,30 @@ namespace YousefZuaianatAPI.Controllers
                 await _context.SaveChangesAsync();
 
                 await transaction.CommitAsync();
+
+                // =======================
+                // Send Email to New Manager
+                // =======================
+                string emailBody = $@"
+      <h2>Welcome {manager.Name}</h2>
+      <p>Your account has been created successfully as a Department Manager.</p>
+      <p><b>Department:</b> {department.Name}</p>
+      <p><b>Email:</b> {manager.Email}</p>
+      <p><b>Password:</b> {dto.Password}</p>
+      <p>Please login and change your password immediately.</p>";
+
+                try
+                {
+                    await _emailService.SendEmailAsync(
+                        manager.Email,
+                        "Your Manager Account Credentials",
+                        emailBody
+                    );
+                }
+                catch (Exception)
+                {
+                    // Ignore email errors for now to keep transaction committed response clean, or handle as needed
+                }
 
                 return Ok(new { Message = "Manager and Department created successfully", ManagerId = manager.Id, DepartmentId = department.Id });
             }
